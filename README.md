@@ -7,7 +7,7 @@ YOLO 视觉 → 自建 Harness → 一个真正能玩的游戏。
 
 | 作业模块 | 状态 | 产物 |
 | --- | --- | --- |
-| 一、本地大模型 + 智能体 | ✅ | Ollama(qwen3:8b) + 手写 ReAct 循环 + Web 三件套 |
+| 一、本地大模型 + 智能体 | ✅ | Ollama(qwen3:8b) + Harness（v4.6：思考流/技能/定时任务/热切换）+ Web 三件套 |
 | 二、YOLO 跑通 | ✅ | 训练 mAP@0.5=0.79 / 摄像头 31 FPS 实时检测 / 接入 Web |
 | 三、硬件结合（进阶） | ⏸ | 手上没板子，暂跳过。接口已留好（加一个 `serial_write` 扩展即可） |
 | 四、Harness 搭建（进阶） | ✅ | 六个模块 + 四层生命周期 10 个钩子 + 扩展热插拔 |
@@ -94,7 +94,7 @@ Windows 双击 `stop.bat`；macOS / Linux `bash stop.sh`，或各终端 Ctrl+C�
                                  ▼  ▼  ▼
                     Node 22 后端 server.js（零依赖）
                        ├─ 静态托管 public/
-                       ├─ /api/chat      第一部分：一次性 ReAct 循环
+                       ├─ /api/chat      聊天窗（v4.6 起委托 Harness，同一套大脑）
                        ├─ /api/detect    YOLO 单图检测
                        ├─ /api/harness/* 第四部分：完整 Harness
                        └─ /api/game/*    第五部分：游戏
@@ -252,7 +252,7 @@ v4.0 起是**肉鸽 + 生存 + 策略 + 模拟经营**：你不再是"闯五层�
 ```
 迷宫（白天探索）──→ 阁楼（经营）──→ 夜袭（妖物上门）──→ 活到第二天
       ▲                                            │
-      └────────────── 天亮，换一张新迷宫 ←──────────┘
+      └──────── 天亮，回到昨天那一格接着走 ←────────┘
 ```
 
 死了就结算：看你**活了多少天**，解锁一件遗物，下一局（周目）的妖物更硬。
@@ -339,8 +339,7 @@ v4.1 补上了三个"硬约束"：**香火**（献祭要烧香）、**歇脚处*
 如果让 8B 模型自己算伤害，它每回合给出的数字都会漂，血条就成了随机数，
 玩家的策略（挑大件、挑对属性）也完全落空——因为模型感知不到公式。
 
-所以规则层（`src/game/rules/`，v4 拆成了常量 / 生存 / 香火 / 设施 / 精怪 / 迷宫 / 房间 / 妖物 /
-献祭 / 咒术 / 架势 / 道行 / 局面状态机等 17 个模块）把所有会漂移的东西锁成纯函数：
+所以规则层（`src/game/rules/`，三层四文件：`core.js` 纯数值与算式 / `world.js` 万物阁·香火·迷宫·精怪·房间 / `run.js` 本局状态机，外加 `index.js` 汇总出口）把所有会漂移的东西锁成纯函数：
 属性判定、克制表、威力曲线、暴击、反击、饱食扣减、香火收支、设施造价、精怪加成。
 模型拿到的只有**已经算好的结构化裁决**，它的活儿只是把数字翻译成故事。
 
@@ -432,17 +431,17 @@ local-ai-lab/
 ├─ start.sh  / stop.sh    # macOS / Linux 一键启停
 ├─ src/                   # 后端（按功能分层，每个目录都带 README）
 │  ├─ config.js           # 端口 / 路径 / 上游地址，全部可用环境变量覆盖
-│  ├─ http/               # HTTP 层：server / router / static + routes/{game,vision,agent,stream}
+│  ├─ http/               # HTTP 层：server（路由 + 静态托管合一）+ routes/{game,vision,agent,stream}
 │  ├─ game/               # 游戏：bus.js 事件总线 + rules/（规则层，纯函数）
-│  │  └─ rules/           # 常量 / 生存 / 设施 / 精怪 / 迷宫 / 房间 / 妖物 / 献祭 / 咒术 / 架势 / 道行 / 局面
-│  ├─ harness/            # 自建 Harness：主循环 / 生命周期 / 工具 / 上下文 / 记忆 / 扩展
-│  │  └─ extensions/      # vision（让 agent 长眼睛）/ research（自动科研）/ quest（万物阁）
-│  ├─ agent/              # 第一部分的手写 ReAct 循环
+│  │  └─ rules/           # core.js 数值算式 / world.js 万物与迷宫 / run.js 局面状态机
+│  ├─ harness/            # 自建 Harness：agent.js 主循环 + kernel.js 内核（生命周期/工具/上下文/记忆/扩展）
+│  │  └─ extensions/      # web（读网页）/ skills（技能包）/ automation（定时任务）/ research / vision / quest
+│  ├─ agent/              # 视觉工具胶水（YOLO/摄像头，供 routes/vision 使用）
 │  └─ vision/             # YOLO 能力封装
 ├─ public/                # 前端（只做 UI 组织与订阅，不做任何规则计算）
 │  ├─ index.html / style.css / app.js      # 主工作台（对话 + 视觉面板 + Harness 面板）
 │  ├─ game.html / game.css / game.js       # 《拾物奇谭》入口
-│  └─ js/                 # store（单一状态源）/ net（REST + SSE）/ ui（13 个组件）/ dom
+│  └─ js/                 # store（单一状态源）/ net（REST + SSE）/ ui（17 个组件）/ dom
 ├─ scripts/               # 测试与运维脚本（各自 README 有说明）
 │  ├─ e2e-v40.js          # v4 机制验证（迷宫/生存/经营/夜袭/结算），不走网络也不走模型
 │  ├─ game-auto.js        # 自动通关演示（人类只按一次启动键）

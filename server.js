@@ -22,7 +22,7 @@ const path = require('path');
 const {
   PORT, SANDBOX_DIR, OLLAMA, YOLO_ENGINE, YOLO_WEIGHTS, YOLO_CONF, CAMERA_URL,
 } = require('./src/config');
-const { ctx } = require('./src/http/context');
+const { ctx, startAutomationScheduler } = require('./src/http/context');
 const { createServer } = require('./src/http/server');
 
 // 沙箱是智能体能读写的唯一目录，先确保它存在
@@ -121,5 +121,6 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`  YOLO 引擎　：${YOLO_ENGINE} | 权重 ${YOLO_WEIGHTS} | 置信度 ${YOLO_CONF}`);
   console.log(`  沙箱目录　：${SANDBOX_DIR}`);
   ensureCamera().catch(() => {});
+  startAutomationScheduler(); // 自动化任务：每 30 秒查一次到期任务
   console.log('');
 });
