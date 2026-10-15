@@ -26,6 +26,49 @@ import cv2
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from infer import Detector  # noqa: E402
 
+# COCO 17 关键点顺序（yolo11n-pose 的输出顺序）
+POSE_NAMES = [
+    "nose", "left_eye", "right_eye", "left_ear", "right_ear",
+    "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
+    "left_wrist", "right_wrist", "left_hip", "right_hip",
+    "left_knee", "right_knee", "left_ankle", "right_ankle",
+]
+
+
+class PoseEstimator:
+    """姿态估计：给前端「立绘模仿动作」供关键点。
+
+    懒加载——只有第一次访问 /pose 时才把 yolo11n-pose.pt 拉起来
+    （本地没有会自动下载，约 6MB），纯检测场景完全不受影响。
+    自带锁：姿态推理跑在 HTTP 线程里，跟摄像头线程的检测模型互不阻塞。
+    """
+
+    def __init__(self):
+        self.model = None
+        self.lock = threading.Lock()
+
+    def infer(self, bgr):
+        with self.lock:
+            if self.model is None:
+                from ultralytics import YOLO  # noqa: PLC0415
+                # 权重跟脚本放一起（yolo/yolo11n-pose.pt），别依赖进程的 cwd
+                w = Path(__file__).resolve().parent / "yolo11n-pose.pt"
+                self.model = YOLO(str(w) if w.exists() else "yolo11n-pose.pt")
+            res = self.model.predict(bgr, imgsz=320, conf=0.3, verbose=False)[0]
+        if res.keypoints is None or res.boxes is None or len(res.boxes) == 0:
+            return None
+        confs = [float(c) for c in res.boxes.conf.tolist()]
+        i = max(range(len(confs)), key=lambda k: confs[k])   # 人多时只跟最像的那个
+        h, w = bgr.shape[:2]
+        kpts = {}
+        for name, (x, y) in zip(POSE_NAMES, res.keypoints.xy[i].tolist()):
+            kpts[name] = [round(x / w, 4), round(y / h, 4)]  # 归一化，前端不关心分辨率
+        return {
+            "score": round(confs[i], 3),
+            "box": [round(float(v), 1) for v in res.boxes.xyxy[i].tolist()],
+            "kpts": kpts,
+        }
+
 
 class CameraWorker(threading.Thread):
     """后台线程不断抓帧 + 推理，主线程只负责把最新结果发出去。"""
@@ -61,14 +104,30 @@ class CameraWorker(threading.Thread):
         if not self.open():
             return
         last = time.perf_counter()
+        misses = 0
         while self.running:
             ok, frame = self.cap.read()
             if not ok:
                 if str(self.source).isdigit():
-                    self.error = "摄像头读取失败"
-                    return
+                    # 摄像头偶发读失败（被别的程序抢占、USB 抖动）先试着重开，
+                    # 别一枪毙命——5 次都救不回来才认输。
+                    misses += 1
+                    if misses > 5:
+                        self.error = "摄像头读取失败（重开 5 次仍未恢复，可能被其他程序占用）"
+                        return
+                    self.error = f"摄像头读取中断，第 {misses}/5 次尝试重开……"
+                    try:
+                        self.cap.release()
+                    except Exception:
+                        pass
+                    time.sleep(1.0)
+                    if not self.open():
+                        continue  # open 失败会写 error，下一轮接着试
+                    self.error = None
+                    continue
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # 视频文件循环播放
                 continue
+            misses = 0
             items, ms = self.det.detect(frame)
             anno = self.det.draw(frame, items)
             now = time.perf_counter()
@@ -91,6 +150,7 @@ class CameraWorker(threading.Thread):
 
 class Handler(BaseHTTPRequestHandler):
     worker: CameraWorker = None
+    pose: PoseEstimator = None
     engine_name = "pt"
 
     def log_message(self, *a):
@@ -186,8 +246,44 @@ class Handler(BaseHTTPRequestHandler):
                 "error": self.worker.error,
             })
 
+        elif path == "/pose":
+            # 姿态关键点：给立绘模仿动作用。帧来自检测线程的最新原帧，
+            # 推理在本线程做——前端按需轮询（开模仿才轮询），平时零开销
+            if self.worker.error:
+                self._json({"error": self.worker.error}, 503)
+                return
+            with self.worker.lock:
+                frame = None if self.worker.raw is None else self.worker.raw.copy()
+            if frame is None:
+                self._json({"error": "还没有帧"}, 503)
+                return
+            try:
+                found = self.pose.infer(frame)
+            except Exception as err:  # noqa: BLE001  权重下载失败等
+                self._json({"error": f"姿态估计失败：{err}"}, 500)
+                return
+            self._json({
+                "person": found is not None,
+                "pose": found,
+                "width": self.worker.width,
+                "height": self.worker.height,
+                "fps": round(self.worker.fps, 1),
+            })
+
         else:
             self._json({"error": "not found"}, 404)
+
+
+def already_running(port):
+    """端口上已有同类服务就别再起第二个——两个实例会抢同一个摄像头，
+    输的那个 read 失败，前端就一直「摄像头读取失败」。"""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/stats", timeout=1.5) as r:
+            return r.status == 200
+    except Exception:
+        return False
 
 
 def main():
@@ -200,11 +296,17 @@ def main():
     ap.add_argument("--port", type=int, default=5179)
     args = ap.parse_args()
 
+    if already_running(args.port):
+        print(f"\n  [!] 端口 {args.port} 已有摄像头服务在跑，本次直接退出。")
+        print("      如需重启：先结束旧进程（或换 --port）。\n", flush=True)
+        return 0
+
     det = Detector(args.weights, args.engine, args.imgsz, args.conf)
     worker = CameraWorker(args.source, det)
     worker.start()
 
     Handler.worker = worker
+    Handler.pose = PoseEstimator()
     Handler.engine_name = args.engine
 
     # 等第一帧，顺便确认摄像头真的能用
@@ -214,7 +316,7 @@ def main():
         time.sleep(0.2)
 
     print(f"\n  摄像头检测服务 → http://127.0.0.1:{args.port}")
-    print(f"  实时流: /video    快照: /snapshot    检测: /detect    状态: /stats")
+    print(f"  实时流: /video    快照: /snapshot    检测: /detect    姿态: /pose    状态: /stats")
     print(f"  状态: {worker.error or '就绪'}\n", flush=True)
 
     ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
