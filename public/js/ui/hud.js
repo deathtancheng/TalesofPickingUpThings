@@ -16,7 +16,28 @@
 
 import { el } from '../dom.js';
 import { S, set } from '../store.js';
-import { bump, centerOf, floatDamage, flash, heroFlinch } from './fx.js';
+import { bump, centerOf, floatDamage, flash, heroFlinch, logConnError } from './fx.js';
+
+/**
+ * 所有「一次普通请求」的统一外壳：忙就不重入 → 上锁 → 跑 → 解锁。
+ *
+ * 以前这段骨架在每个动作函数里各抄一遍（maze 四个、hall 三个），
+ * 抄漏一个 finally 就是「点一次之后就再也点不动」。收成一处之后，
+ * 漏解锁在结构上不再可能发生 —— 这也是这个文件存在的理由。
+ *
+ * @param {() => Promise<any>} run 真正干活的部分（发请求 + 写 store + 记流水）
+ */
+export async function guard(run) {
+  if (S.busy) return;
+  setBusy(true);
+  try {
+    await run();
+  } catch (err) {
+    logConnError(err.message);
+  } finally {
+    setBusy(false);
+  }
+}
 
 /** 锁/解锁所有会发请求的按钮 */
 export function setBusy(on) {

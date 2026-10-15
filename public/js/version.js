@@ -4,4 +4,4 @@
  * 放在任何一个业务模块里都会引出不必要的依赖。
  */
 
-export const VERSION = '4.5.5';
+export const VERSION = '4.9.0';

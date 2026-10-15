@@ -72,10 +72,16 @@ export function hideTitle() {
   setTimeout(done, 420);
 }
 
-/** 绑定四个按钮。整个前端只有这里认识它们 */
+/** 绑定四个按钮。整个前端只有这里认识它们。
+ *  onStart 允许返回 Promise（要先连服务再进游戏的那种）：
+ *  异步时收屏的时机由 handler 自己决定——连接失败得留在标题屏重试。 */
 export function bindTitle() {
   if (!el.titleScreen) return;
-  el.tsStart.onclick = () => { hideTitle(); if (handlers && handlers.onStart) handlers.onStart(); };
+  el.tsStart.onclick = () => {
+    if (!handlers || !handlers.onStart) return;
+    const r = handlers.onStart();
+    if (!(r && typeof r.then === 'function')) hideTitle();
+  };
   el.tsNew.onclick = () => { if (handlers && handlers.onNew) handlers.onNew(); };
   el.tsCycle.onclick = () => { if (handlers && handlers.onCycle) handlers.onCycle(); };
   el.tsLog.onclick = () => { if (handlers && handlers.onLog) handlers.onLog(); };

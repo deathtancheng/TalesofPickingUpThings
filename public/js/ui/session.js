@@ -110,10 +110,13 @@ export async function resetToFirstCycle() {
  * 铺屏的动作挪到 enterGame()，由标题屏那个按钮来叫。
  */
 export async function boot() {
+  if (bootDone) return;   // 幂等：start() 超时后台跑完的那次不能重复订阅
   await fetchState();
   await loadLegacy();     // 遗物是跨局的，一进页面就该挂上
   subscribeState();       // 后端之后推什么都直接进 store
+  bootDone = true;
 }
+let bootDone = false;
 
 /** 推门进阁：把这一局铺到屏幕上 */
 export function enterGame() {

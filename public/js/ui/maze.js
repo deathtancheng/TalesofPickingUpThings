@@ -19,8 +19,8 @@
 import { el } from '../dom.js';
 import { S, set } from '../store.js';
 import { postTravel, postRoom, postDescend, postReturn } from '../net/api.js';
-import { setBusy, setCam } from './hud.js';
-import { addLog, logConnError } from './fx.js';
+import { guard, setCam } from './hud.js';
+import { addLog } from './fx.js';
 
 const DIR_CN = { up: '上', down: '下', left: '左', right: '右' };
 
@@ -289,7 +289,7 @@ export function renderScene() {
         .join('') || '<p>……</p>';
     }
     el.scActs.innerHTML = sceneActs(r);
-    bindSceneActs(r);
+    bindSceneActs();
   } else if (st.phase === 'night') {
     // 夜战：名字条交给守阁灵，正文是模型写的（#speech 由 act.js 流式更新）
     el.gdName.textContent = (S.guardian && S.guardian.name) || '妖物';
@@ -400,20 +400,19 @@ function sceneActs(r) {
   return '<div class="sc-row"><button class="btn primary" data-sc="close">继续</button></div>';
 }
 
-function bindSceneActs(r) {
+/**
+ * data-sc → 动作。三类以外都是「抉择」：
+ *   显式选项表（郎中/说书人/传功人）把 id 放在 data-val，
+ *   神龛/铜镜/借宿的固定抉择没有 data-val，按钮自己的 key 就是选项名。
+ */
+function bindSceneActs() {
   el.scActs.querySelectorAll('[data-sc]').forEach((b) => {
     b.onclick = () => {
       const k = b.dataset.sc;
-      if (k === 'close') closeScene();
-      else if (k === 'skip') doRoom({ skip: true });
-      else if (k === 'pray') doRoom({ choice: 'pray' });
-      else if (k === 'smash') doRoom({ choice: 'smash' });
-      else if (k === 'look') doRoom({ choice: 'look' });
-      else if (k === 'cover') doRoom({ choice: 'cover' });
-      else if (k === 'stay') doRoom({ choice: 'stay' });
-      else if (k === 'decline') doRoom({ choice: 'decline' });
-      else if (k === 'buy') doRoom({ good: b.dataset.good });
-      else if (k === 'choice') doRoom({ choice: b.dataset.val });
+      if (k === 'close') return closeScene();
+      if (k === 'skip') return doRoom({ skip: true });
+      if (k === 'buy') return doRoom({ good: b.dataset.good });
+      return doRoom({ choice: b.dataset.val || k });
     };
   });
 }
@@ -430,78 +429,52 @@ export function closeScene() {
 
 /* ══════════════════════════════════════════════════════════════
    动作
+   —— 四个动作共用同一套外壳（忙锁 + 断连兜底，见 hud.js 的 guard()），
+      本体只剩下"发哪个请求、拿到结果后怎么记一笔"。
    ══════════════════════════════════════════════════════════════ */
 
+/** 最后一行旁白：房间结算的文字都以它收尾 */
+const lastLine = (r) => (r && r.text && r.text[r.text.length - 1]) || '';
+
 /** 走一格 */
-export async function travel(dir) {
-  if (S.busy) return;
-  setBusy(true);
-  try {
+export function travel(dir) {
+  return guard(async () => {
     const j = await postTravel(dir);
     if (j.state) set({ state: j.state, room: j.result || null, sceneClosed: false }, 'travel');
-    if (j.result && j.result.text) {
-      addLog({
-        idx: DIR_CN[dir] || dir,
-        html: j.result.text[j.result.text.length - 1] || '',
-        right: '',
-        fresh: true,
-      });
-    }
+    const line = lastLine(j.result);
+    if (line) addLog({ idx: DIR_CN[dir] || dir, html: line, right: '', fresh: true });
     // 宅子在动：走过的房间换了内容，得让玩家知道地图不可信
     if (j.rerolled > 0) {
       addLog({ idx: '↻', html: `宅子在动 —— 走过的 <b>${j.rerolled}</b> 间屋子换了内容。`, right: '', fresh: true });
     }
     if (!j.ok && j.msg) addLog({ idx: '×', html: j.msg, right: '', fresh: true });
-  } catch (err) {
-    logConnError(err.message);
-  } finally {
-    setBusy(false);
-  }
+  });
 }
 
 /** 结算脚下的房间：举物 / 抉择 / 买货 / 告辞 */
-export async function doRoom(payload) {
-  if (S.busy) return;
-  setBusy(true);
-  try {
+export function doRoom(payload) {
+  return guard(async () => {
     const j = await postRoom(payload);
     if (j.state) set({ state: j.state, room: j.result || null, sceneClosed: false }, 'room');
-    if (j.result && j.result.text) {
-      addLog({ idx: '·', html: j.result.text[j.result.text.length - 1] || '', right: '', fresh: true });
-    }
-  } catch (err) {
-    logConnError(err.message);
-  } finally {
-    setBusy(false);
-  }
+    const line = lastLine(j.result);
+    if (line) addLog({ idx: '·', html: line, right: '', fresh: true });
+  });
 }
 
 /** 下潜：往更深一层走 */
-export async function descend() {
-  if (S.busy) return;
-  setBusy(true);
-  try {
+export function descend() {
+  return guard(async () => {
     const j = await postDescend();
     if (j.state) set({ state: j.state, room: null, sceneClosed: false }, 'descend');
     if (j.ok) addLog({ idx: '↓', html: `下到迷宫第 <b>${j.depth}</b> 层。`, right: `-${j.sanity} 精神` });
-  } catch (err) {
-    logConnError(err.message);
-  } finally {
-    setBusy(false);
-  }
+  });
 }
 
 /** 收工回阁（只在歇脚处可用，后端还会再拦一道） */
-export async function returnHall() {
-  if (S.busy) return;
-  setBusy(true);
-  try {
+export function returnHall() {
+  return guard(async () => {
     const j = await postReturn();
     if (j.state) set({ state: j.state, room: null, sceneClosed: false }, 'return');
     if (!j.ok && j.msg) addLog({ idx: '×', html: j.msg, right: '', fresh: true });
-  } catch (err) {
-    logConnError(err.message);
-  } finally {
-    setBusy(false);
-  }
+  });
 }

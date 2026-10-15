@@ -29,7 +29,7 @@ import { showChangelog, confirmDialog } from './ui/modal.js';
 import { addLog } from './ui/fx.js';
 import { startMotes } from './ui/ambience.js';
 import { boot, enterGame, resetGame, resetToFirstCycle } from './ui/session.js';
-import { showTitle, bindTitle } from './ui/title.js';
+import { showTitle, hideTitle, bindTitle } from './ui/title.js';
 import { startClockTicker } from './ui/clock.js';
 
 /** 按钮灰着被点时说明在忙什么——总比"点了没反应"好 */
@@ -144,28 +144,62 @@ el.cyclePill.addEventListener('click', async () => {
   else resetGame();
 });
 
+/** boot 带超时：超时/失败都返回 false，绝不卡住启动序列。
+ *  v4.9.1 的教训：bindTitle 曾排在 await boot() 之后，服务没就绪时
+ *  标题屏四个按钮一个都绑不上——「按键按不了了」就是这么来的。 */
+function bootWithin(ms) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), ms);
+    boot()
+      .then(() => { clearTimeout(timer); resolve(true); })
+      .catch((err) => {
+        console.warn('[boot] 没连上：', err);
+        clearTimeout(timer);
+        resolve(false);
+      });
+  });
+}
+
 /** 启动。由 public/game.js 调一次 */
 export async function start() {
   startMotes(document.getElementById('motes'));  // 纯装饰，先跑起来
   startWatchdog();      // 兜底解锁，防「点不动了」
-  await boot();
+  bindTitle();          // 标题屏按钮先绑：boot 卡住/失败也能点（v4.9.1 修复）
   pollDetect();         // 摄像头轮询自循环，失败也只是把取景框标灰
   startClockTicker();   // 时辰秒表：本地自己走，时间到由后端翻页
   startCamFeed();       // 取景框画面：MJPEG 优先，不动就自动换快照
-  bindTitle();          // 标题屏的四个按钮
   setTurn('player');
 
-  // 开局先停在标题画面：先知道这是个什么游戏，再推门。
+  // boot 失败不再是死局：标题屏照常亮，推门时自动重试
+  const bootOk = await bootWithin(12000);
+
   // ?play=1 可以直接进游戏（截图 / 调试用）。
   const jump = new URLSearchParams(location.search).has('play');
   if (jump) {
-    enterGame();
-  } else {
-    showTitle({
-      onStart: () => enterGame(),
-      onNew: () => resetGame(),
-      onCycle: () => resetToFirstCycle(),
-      onLog: () => showChangelog(VERSION),
-    });
+    if (!bootOk) {
+      await boot().catch((err) => {
+        const box = document.getElementById('speech');
+        if (box) box.textContent = '起不来：' + err.message + '（确认 server.js 与 camera_server.py 都在跑）';
+      });
+    }
+    if (S.state) enterGame();
+    return;
   }
+  showTitle({
+    onStart: async () => {
+      if (!S.state) {
+        el.tsNote.textContent = '正在连接服务……';
+        const ok = await bootWithin(20000);
+        if (!ok) {
+          el.tsNote.textContent = '连不上服务——确认 server.js 在跑，再点一次「推门进阁」重试。';
+          return;   // 留在标题屏，按钮还能再点
+        }
+      }
+      hideTitle();
+      enterGame();
+    },
+    onNew: () => resetGame(),
+    onCycle: () => resetToFirstCycle(),
+    onLog: () => showChangelog(VERSION),
+  });
 }

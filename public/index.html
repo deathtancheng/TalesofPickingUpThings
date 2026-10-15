@@ -3,31 +3,51 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>华小牛 · 本地智能体工作台</title>
+<title>爱莉希雅 · 本地智能体</title>
 <link rel="stylesheet" href="/public/style.css" />
 </head>
 <body>
+<!-- 爱莉希雅装饰层：光晕 + 星光 + 飘落花瓣。纯装饰，不可点击，不挡交互 -->
+<div class="deco" aria-hidden="true">
+  <span class="glow g1"></span>
+  <span class="glow g2"></span>
+  <span class="glow g3"></span>
+  <div id="petalField" class="petal-field"></div>
+  <span class="star s1">✦</span>
+  <span class="star s2">✧</span>
+  <span class="star s3">✦</span>
+  <span class="star s4">✧</span>
+  <span class="star s5">✦</span>
+</div>
+
 <div class="app">
   <!-- ── 侧栏 ───────────────────────────────── -->
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark">小牛</div>
+      <div class="brand-mark"><img src="/public/img/elysia-avatar.png" alt="爱莉希雅" /></div>
       <div class="brand-text">
-        <strong>华小牛</strong>
-        <span>本地智能体工作台</span>
+        <strong>爱莉希雅</strong>
+        <span>跑在你自己电脑上的智能体</span>
       </div>
     </div>
+    <div class="brand-deco" aria-hidden="true"><i></i><span>✦</span><i></i></div>
 
-    <button id="newChat" class="btn-new">＋ 新对话</button>
+    <button id="newChat" class="btn-new">＋ 开启新对话</button>
+
+    <div class="side-sec">
+      <div class="side-sec-title">对话记录</div>
+      <div id="sessionsList" class="sessions"></div>
+    </div>
 
     <nav class="nav">
+      <div class="side-sec-title">更多能力</div>
       <button id="visionToggle" class="nav-item" data-panel="vision">
         <span class="ni-ico">👁</span>
-        <span class="ni-txt"><b>视觉面板</b><i>YOLO 实时检测</i></span>
+        <span class="ni-txt"><b>视觉面板</b><i>摄像头实时检测</i></span>
       </button>
       <button id="harnessToggle" class="nav-item" data-panel="harness">
         <span class="ni-ico">🧩</span>
-        <span class="ni-txt"><b>Harness 工作台</b><i>看它一层层往下走</i></span>
+        <span class="ni-txt"><b>Agent 面板</b><i>定时任务 · 内部时间线</i></span>
       </button>
       <a id="gameEntry" class="nav-item game" href="/public/game.html">
         <span class="ni-ico">🎮</span>
@@ -35,78 +55,86 @@
       </a>
     </nav>
 
-    <div class="panel">
-      <label class="field">
-        <span>模型</span>
-        <select id="modelSel"><option value="">加载中…</option></select>
-      </label>
+    <div class="side-foot">
+      <div class="foot-row">
+        <select id="modelSel" title="切换模型"><option value="">加载中…</option></select>
+      </div>
+      <div class="foot-row temp-row">
+        <label class="switch">
+          <input id="toolToggle" type="checkbox" checked />
+          <span class="switch-track"><span class="switch-dot"></span></span>
+          <span class="switch-label">工具</span>
+        </label>
+        <span class="temp">温度 <em id="tempVal">0.6</em></span>
+        <input id="tempRange" type="range" min="0" max="1.2" step="0.1" value="0.6" title="温度" />
+      </div>
 
-      <label class="field">
-        <span>温度 <em id="tempVal">0.6</em></span>
-        <input id="tempRange" type="range" min="0" max="1.2" step="0.1" value="0.6" />
-      </label>
+      <div class="agent-card" id="agentCard">
+        <span class="orb" id="orb"></span>
+        <span class="agent-meta">
+          <strong id="agentTitle">爱莉希雅</strong>
+          <span id="statusText">正在连接…</span>
+        </span>
+      </div>
 
-      <label class="switch">
-        <input id="toolToggle" type="checkbox" checked />
-        <span class="switch-track"><span class="switch-dot"></span></span>
-        <span class="switch-label">启用工具调用（智能体模式）</span>
-      </label>
-    </div>
-
-    <div class="panel tools">
-      <div class="panel-title">可用工具</div>
-      <ul>
-        <li><code>calculator</code> 精确计算</li>
-        <li><code>get_current_time</code> 当前时间</li>
-        <li><code>list_files</code> 浏览沙箱</li>
-        <li><code>read_file</code> 读取文件</li>
-        <li><code>write_file</code> 写入文件</li>
-        <li><code>fetch_url</code> 抓取网页</li>
-        <li><code>detect_image</code> 图片目标检测</li>
-        <li><code>detect_camera</code> 看摄像头画面</li>
-        <li><code>camera_snapshot</code> 拍一张照</li>
-      </ul>
-    </div>
-
-    <div class="agent-card" id="agentCard">
-      <span class="orb" id="orb"></span>
-      <span class="agent-meta">
-        <strong id="agentTitle">华小牛</strong>
-        <span id="statusText">正在连接…</span>
-      </span>
-      <span class="dot" id="dot" style="margin-left:auto"></span>
+      <div class="side-quote">如花般绽放的每一天</div>
     </div>
   </aside>
 
   <!-- ── 主区 ───────────────────────────────── -->
   <main class="main">
-    <div id="chat" class="chat">
-      <div class="welcome">
-        <h1>你好，我是华小牛 🐮</h1>
-        <p>模型跑在你自己的显卡上，数据不出本机。打开工具开关后，我可以调用计算器、读写沙箱文件、抓网页。</p>
-        <div class="chips">
-          <button class="chip" data-q="帮我算一下 1024 * (37 + 88) 是多少">算个表达式</button>
-          <button class="chip" data-q="现在几点了？顺便看看沙箱里有什么文件">查时间 + 列文件</button>
-          <button class="chip" data-q="在沙箱里写一个 notes/plan.md，内容是本周的三条学习计划">写一份计划文件</button>
-          <button class="chip" data-q="用三句话解释一下什么是 RAG，然后把它存进沙箱 notes/rag.md">讲概念并存文件</button>
-        </div>
+    <!-- 水晶角饰：呼应爱莉希雅的水晶花意象 -->
+    <div class="corner-orn tr" aria-hidden="true">
+      <svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 62 C4 30 30 4 62 4" fill="none" stroke="#e789b6" stroke-width="1.6" stroke-linecap="round" opacity=".75"/>
+        <path d="M14 70 C14 40 40 14 70 14" fill="none" stroke="#a5d5ee" stroke-width="1.2" stroke-linecap="round" opacity=".6"/>
+        <path d="M62 4 l9 9 -9 9 -9 -9 z" fill="#fff" stroke="#e789b6" stroke-width="1.3"/>
+        <path d="M70 14 l6 6 -6 6 -6 -6 z" fill="#eaf6fd" stroke="#a5d5ee" stroke-width="1.1"/>
+        <circle cx="52" cy="22" r="2.2" fill="#e9b765" opacity=".85"/>
+        <path d="M30 30 q6 -6 12 0 q-6 6 -12 0" fill="#fdeaf4" stroke="#e789b6" stroke-width="1"/>
+      </svg>
+    </div>
+    <div class="corner-orn bl" aria-hidden="true">
+      <svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 62 C4 30 30 4 62 4" fill="none" stroke="#e789b6" stroke-width="1.6" stroke-linecap="round" opacity=".75"/>
+        <path d="M14 70 C14 40 40 14 70 14" fill="none" stroke="#a5d5ee" stroke-width="1.2" stroke-linecap="round" opacity=".6"/>
+        <path d="M62 4 l9 9 -9 9 -9 -9 z" fill="#fff" stroke="#e789b6" stroke-width="1.3"/>
+        <path d="M70 14 l6 6 -6 6 -6 -6 z" fill="#eaf6fd" stroke="#a5d5ee" stroke-width="1.1"/>
+        <circle cx="52" cy="22" r="2.2" fill="#e9b765" opacity=".85"/>
+      </svg>
+    </div>
+
+    <div id="chat" class="chat"></div>
+
+    <!-- 爱莉希雅桌宠：关节纸娃娃。部件由 mascot.js 按 rig 清单组装，
+         点她一下会随机做可爱动作并说台词；按住可拖动（双击复位） -->
+    <div id="mascot" class="mascot">
+      <div id="eDrag" class="mascot-drag" title="点点我会有惊喜 · 按住拖到任意位置 · 双击回到原位">
+        <div id="eShadow" class="mascot-shadow" aria-hidden="true"></div>
+        <div id="eLean" class="mascot-lean"></div>
+      </div>
+      <div class="mascot-bar">
+        <span id="eState" class="mascot-state">点我试试 ✨</span>
       </div>
     </div>
 
-    <div class="composer">
-      <textarea id="input" rows="1" placeholder="说点什么…（Enter 发送，Shift+Enter 换行）"></textarea>
-      <button id="sendBtn" class="btn-send" title="发送">↑</button>
-      <button id="stopBtn" class="btn-stop" title="停止" hidden>■</button>
+    <div class="composer-wrap">
+      <div class="composer">
+        <textarea id="input" rows="1" placeholder="给爱莉希雅发消息…"></textarea>
+        <button id="sendBtn" class="btn-send" title="发送">↑</button>
+        <button id="stopBtn" class="btn-stop" title="停止" hidden>■</button>
+      </div>
+      <div class="composer-hint">Enter 发送 · Shift+Enter 换行 · 生成内容可能出错，重要信息请核实</div>
     </div>
   </main>
 </div>
 
-<!-- ── 右侧抽屉：视觉 / Harness 共用同一个壳体 ─────────────── -->
+<!-- ── 右侧抽屉：视觉 / Agent 面板共用同一个壳体 ───────────── -->
 <div id="drift" class="drift"></div>
 
 <div id="drawerVision" class="drawer" hidden>
   <div class="drawer-head">
-    <div class="dh-title"><span class="dh-ico">👁</span><strong>视觉 · YOLO 实时检测</strong></div>
+    <div class="dh-title"><span class="dh-ico">👁</span><strong>视觉 · 摄像头实时检测</strong></div>
     <button class="icon-btn drawer-close" data-close="drawerVision" title="收起">✕</button>
   </div>
   <div class="drawer-body">
@@ -129,11 +157,37 @@
 
 <div id="drawerHarness" class="drawer" hidden>
   <div class="drawer-head">
-    <div class="dh-title"><span class="dh-ico">🧩</span><strong>Harness 工作台</strong></div>
+    <div class="dh-title"><span class="dh-ico">🧩</span><strong>Agent 面板</strong></div>
     <button class="icon-btn drawer-close" data-close="drawerHarness" title="收起">✕</button>
   </div>
   <div class="drawer-body">
     <div id="hState" class="h-state">装载中…</div>
+
+    <div class="h-model-row">
+      <label for="hModel">模型</label>
+      <select id="hModel" class="h-model"><option>装载中…</option></select>
+      <span id="hThinkBadge" class="tag2" title="深度思考已开启，思考流会显示在时间线里">深度思考</span>
+    </div>
+
+    <div class="h-autos-head">
+      <span>定时任务</span>
+      <button id="hAutosRefresh" class="link-btn">刷新</button>
+    </div>
+    <div id="hAutos" class="h-autos">（还没查过）</div>
+
+    <div class="h-autos-head">
+      <span>技能包</span>
+      <button id="hSkillsRefresh" class="link-btn">刷新</button>
+    </div>
+    <div id="hSkills" class="h-autos">（还没查过）</div>
+    <div class="h-skill-install">
+      <input id="hSkillUrl" class="h-input" placeholder="SKILL.md 网址（GitHub raw 等），或直接粘贴内容" />
+      <div class="h-skill-row2">
+        <input id="hSkillName" class="h-input" placeholder="名称，可选" />
+        <button id="hSkillInstall" class="link-btn">安装</button>
+      </div>
+      <div id="hSkillMsg" class="h-skill-msg"></div>
+    </div>
 
     <div class="h-goal">
       <textarea id="hGoal" rows="3" placeholder="给它一个目标，然后你就是启动子。&#10;例：查一下 YOLO11 相比 YOLOv8 改了什么，存一份笔记，把结论记进长期记忆。"></textarea>
@@ -165,6 +219,8 @@
   </div>
 </div>
 
-<script src="/public/app.js"></script>
+<script src="/public/js/deco.js?v=4.9.0"></script>
+<script src="/public/js/mascot.js?v=5.3.0"></script>
+<script src="/public/app.js?v=4.9.0"></script>
 </body>
 </html>

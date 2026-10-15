@@ -11,8 +11,8 @@
 import { el } from '../dom.js';
 import { S, set } from '../store.js';
 import { postHall, postNight, postLeave } from '../net/api.js';
-import { setBusy } from './hud.js';
-import { addLog, logConnError } from './fx.js';
+import { guard } from './hud.js';
+import { addLog } from './fx.js';
 
 const ELE_CN = {
   wood: '木', fire: '火', earth: '土', metal: '金', water: '水',
@@ -154,53 +154,33 @@ function renderDaily(st) {
 
 /* ══════════════════════════════════════════════════════════════
    动作
+   —— 共用 hud.js 的 guard()（忙锁 + 断连兜底），本体只做两件事：
+      发请求、把结果记一笔。
    ══════════════════════════════════════════════════════════════ */
 
-async function act(action, id) {
-  if (S.busy) return;
-  setBusy(true);
-  try {
+function act(action, id) {
+  return guard(async () => {
     const j = await postHall(action, id);
     if (j.state) set({ state: j.state }, 'hall');
-    if (j.msg) {
-      addLog({ idx: j.ok ? '阁' : '×', html: j.msg, right: '', fresh: j.ok });
-    }
-  } catch (err) {
-    logConnError(err.message);
-  } finally {
-    setBusy(false);
-  }
+    if (j.msg) addLog({ idx: j.ok ? '阁' : '×', html: j.msg, right: '', fresh: j.ok });
+  });
 }
 
 /** 再出门一趟：从阁回到迷宫（还是刚才那张图，刚记住的路不白记） */
-export async function backToMaze() {
-  if (S.busy) return;
-  setBusy(true);
-  try {
+export function backToMaze() {
+  return guard(async () => {
     const j = await postLeave();
     if (j.state) set({ state: j.state, room: null }, 'back');
-  } catch (err) {
-    logConnError(err.message);
-  } finally {
-    setBusy(false);
-  }
+  });
 }
 
 /** 入夜 */
-export async function goNight() {
-  if (S.busy) return;
-  setBusy(true);
-  try {
+export function goNight() {
+  return guard(async () => {
     const j = await postNight();
     // 顺手把 guardian 一起写进去：无头快照/关掉 SSE 时也能立刻画出妖物
     if (j.state) set({ state: j.state, guardian: j.beast || null, room: null }, 'night');
-    if (j.beast) {
-      addLog({ idx: '夜', html: `<b>${j.beast.name}</b> 顺着阁墙爬上来了。`, right: '守夜' });
-    }
+    if (j.beast) addLog({ idx: '夜', html: `<b>${j.beast.name}</b> 顺着阁墙爬上来了。`, right: '守夜' });
     if (!j.ok && j.msg) addLog({ idx: '×', html: j.msg, right: '' });
-  } catch (err) {
-    logConnError(err.message);
-  } finally {
-    setBusy(false);
-  }
+  });
 }
