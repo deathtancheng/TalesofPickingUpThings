@@ -1,14 +1,16 @@
 {
-  "cycle": 1,
-  "clears": 0,
+  "cycle": 2,
+  "clears": 1,
   "bestTurns": null,
-  "relics": [],
+  "relics": [
+    "ember"
+  ],
   "history": [
     {
-      "at": "2026-10-06T17:31:44.456Z",
+      "at": "2026-10-14T23:50:15.588Z",
       "cycle": 1,
       "days": 5,
-      "depth": 1,
+      "depth": 2,
       "rounds": 4,
       "playerHp": 0,
       "coin": 182,
@@ -32,54 +34,19 @@
       "ending": "fall"
     },
     {
-      "at": "2026-10-08T14:13:11.101Z",
+      "at": "2026-10-14T23:52:27.470Z",
       "cycle": 1,
-      "days": 3,
-      "depth": 1,
-      "rounds": 1,
-      "playerHp": 0,
-      "coin": 13,
-      "satiety": 88,
-      "sanity": 96,
-      "hall": 0,
-      "hallTitle": "一间空阁",
-      "spirits": [],
-      "equipment": [
-        {
-          "name": "锋物符",
-          "atk": 4,
-          "def": 1,
-          "crit": 0
-        }
-      ],
-      "stats": {
-        "atk": 12,
-        "def": 4,
-        "crit": 0.05
-      },
-      "ending": "fall"
-    },
-    {
-      "at": "2026-10-08T15:07:38.301Z",
-      "cycle": 2,
       "days": 2,
       "depth": 1,
       "rounds": 0,
       "playerHp": 0,
       "coin": 20,
-      "satiety": 83,
-      "sanity": 94,
+      "satiety": 100,
+      "sanity": 96,
       "hall": 0,
       "hallTitle": "一间空阁",
       "spirits": [],
-      "equipment": [
-        {
-          "name": "镇物符",
-          "atk": 1,
-          "def": 3,
-          "crit": 0
-        }
-      ],
+      "equipment": [],
       "stats": {
         "atk": 10,
         "def": 4,

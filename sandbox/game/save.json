@@ -4,7 +4,7 @@
   "clock": {
     "kind": "day",
     "len": 180000,
-    "endAt": 1791476456173
+    "endAt": 1792038081276
   },
   "dark": false,
   "darkAcc": 0,
@@ -28,25 +28,25 @@
       {
         "x": 0,
         "y": 0,
-        "type": "empty",
+        "type": "foe",
         "solved": false
       },
       {
         "x": 1,
         "y": 0,
-        "type": "empty",
+        "type": "chest",
         "solved": false
       },
       {
         "x": 2,
         "y": 0,
-        "type": "chest",
+        "type": "trap",
         "solved": false
       },
       {
         "x": 3,
         "y": 0,
-        "type": "trap",
+        "type": "empty",
         "solved": false
       },
       {
@@ -58,7 +58,7 @@
       {
         "x": 0,
         "y": 1,
-        "type": "empty",
+        "type": "rest",
         "solved": false
       },
       {
@@ -76,64 +76,64 @@
       {
         "x": 3,
         "y": 1,
-        "type": "rest",
+        "type": "shop",
         "solved": false
       },
       {
         "x": 4,
         "y": 1,
-        "type": "chest",
+        "type": "shrine",
         "solved": false
       },
       {
         "x": 0,
         "y": 2,
-        "type": "shop",
+        "type": "trap",
         "solved": false
       },
       {
         "x": 1,
         "y": 2,
-        "type": "doctor",
+        "type": "chest",
         "solved": false
       },
       {
         "x": 2,
         "y": 2,
-        "type": "item",
+        "type": "empty",
         "solved": false
       },
       {
         "x": 3,
         "y": 2,
-        "type": "empty",
+        "type": "bard",
         "solved": false
       },
       {
         "x": 4,
         "y": 2,
-        "type": "item",
+        "type": "empty",
         "solved": false
       },
       {
         "x": 0,
         "y": 3,
-        "type": "empty",
+        "type": "doctor",
         "solved": false
       },
       {
         "x": 1,
+        "y": 3,
+        "type": "empty",
+        "solved": false
+      },
+      {
+        "x": 2,
         "y": 3,
         "type": "forge",
         "solved": false
       },
       {
-        "x": 2,
-        "y": 3,
-        "type": "bard",
-        "solved": false
-      },
-      {
         "x": 3,
         "y": 3,
         "type": "empty",
@@ -142,7 +142,7 @@
       {
         "x": 4,
         "y": 3,
-        "type": "trap",
+        "type": "item",
         "solved": false
       },
       {
@@ -154,7 +154,7 @@
       {
         "x": 1,
         "y": 4,
-        "type": "foe",
+        "type": "empty",
         "solved": false
       },
       {
@@ -166,13 +166,13 @@
       {
         "x": 3,
         "y": 4,
-        "type": "shrine",
+        "type": "empty",
         "solved": false
       },
       {
         "x": 4,
         "y": 4,
-        "type": "empty",
+        "type": "item",
         "solved": false
       }
     ],
@@ -226,7 +226,7 @@
     "atk": 10,
     "def": 4,
     "crit": 0.05,
-    "mana": 42
+    "mana": 62
   },
   "equipment": [],
   "skills": [
@@ -244,10 +244,12 @@
     "insights": [],
     "history": []
   },
-  "cycle": 1,
-  "relics": [],
+  "cycle": 2,
+  "relics": [
+    "ember"
+  ],
   "ending": null,
   "over": null,
   "news": [],
-  "startedAt": "2026-10-08T16:17:56.173Z"
+  "startedAt": "2026-10-15T04:18:21.276Z"
 }
